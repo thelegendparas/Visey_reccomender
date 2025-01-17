@@ -1,0 +1,142 @@
+# To import the necessary token and url values
+import os
+from dotenv import load_dotenv, dotenv_values
+import numpy as np
+
+load_dotenv()
+
+# Loading all the token values
+Zilli_url = os.getenv("ZILLI_URL")
+Zilli_token = os.getenv("ZILLI_TOKEN")
+
+OpenAI_API_Key = os.getenv("OPENAI_API_KEY")
+
+Geolocator_API_Key = os.getenv("GEOLOCATOR_API_KEY")
+# Openapi embedding generation code
+import requests
+
+
+def generate_embedding(input: str):
+    # payload
+    data = {
+        "input": input,
+        "dimensions": 500,
+        "model": "text-embedding-3-large"
+    }
+
+    # Headers
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {OpenAI_API_Key}"
+    }
+
+    response = requests.post(url="https://api.openai.com/v1/embeddings",
+                             headers=headers, json=data)
+
+    return response
+
+
+def insert_data_milvus(id: str, location: str, category: str, vector: list):
+    url = Zilli_url + "insert"
+
+    payload = {
+        "collectionName": "content_based",
+        "data": [
+            {
+                "primary_key": id,
+                "location": location,
+                "category": category,
+                "vector": vector
+            }
+        ]
+    }
+
+    headers = {
+        "Authorization": Zilli_token,
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url=url, json=payload, headers=headers)
+
+    return response
+
+
+def search_data_milvus(vector: list):
+    url = Zilli_url + "search"
+
+    payload = {
+        "collectionName": "content_based",
+        "data": [vector],
+        "limit": 4,
+        "outputFields": ["primary_key"]
+    }
+
+    headers = {
+        "Authorization": Zilli_token,
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    return response
+
+
+def transform_address(address: str):
+    api_key = Geolocator_API_Key
+    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={api_key}"
+
+    response = requests.get(url=url)
+    data = response.json()
+
+    # To check if the request has been successfully made or not
+    if data['status'] == 'OK':
+        location = data['results'][0]['geometry']['location']
+
+        return [location['lat'],location['lng']]
+    else:
+        return data.json()
+
+
+def combine_embeddings_with_weights(embeddings: list, weights:list):
+    # Initialize an empty array for the final embedding
+    final_embedding = np.zeros_like(embeddings[0])
+
+    # Combine embeddings based on their weights
+    for i in range(len(embeddings)):
+        final_embedding += embeddings[i] * weights[i]
+
+    # Normalise by the total weight to keep the scale consistent
+    total_weight = sum(weights)
+    final_embedding /= total_weight
+
+    final_embedding = final_embedding.tolist()
+
+    return final_embedding
+
+
+if __name__ == "__main__":
+    def test1_insertions():
+        # writing test cases here
+        response = generate_embedding("testing tesbewbting, 1 2 3")
+
+        response = insert_data_milvus("121425234", '2124124124', '21251241', (response.json()['data'][0]['embedding']))
+        print(response.json())
+
+
+    def test2_searches():
+        # writing test cases here
+        response = generate_embedding("testing testing, 1 2 3")
+
+        response = search_data_milvus(response.json()['data'][0]['embedding'])
+        print(response.json())
+
+    def test3_geo_locator():
+        address = "Hari Nagar New Delhi, 110064"
+        response = transform_address(address)
+        print(response)
+
+    test3_geo_locator()
+    test2_searches()
+    test1_insertions()
