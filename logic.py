@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv, dotenv_values
 import numpy as np
 
-load_dotenv()
+load_dotenv(dotenv_path="env/.env")
 
 # Loading all the token values
 Zilli_url = os.getenv("ZILLI_URL")
@@ -100,7 +100,6 @@ def search_data_milvus(vector: list, limit: int):
 def transform_address(address: str):
     api_key = Geolocator_API_Key
     url = f"https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={api_key}"
-
     response = requests.get(url=url)
     data = response.json()
 
@@ -158,4 +157,4 @@ if __name__ == "__main__":
         print(response)
 
 
-    test2_searches()
+    test3_geo_locator()
