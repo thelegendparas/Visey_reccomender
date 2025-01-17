@@ -33,7 +33,9 @@ def generate_embedding(input: str):
     response = requests.post(url="https://api.openai.com/v1/embeddings",
                              headers=headers, json=data)
 
-    return response
+    response = response.json()
+
+    return response["data"][0]['embedding']
 
 
 def insert_data_milvus(id: str, location: str, category: str, vector: list):
@@ -59,16 +61,27 @@ def insert_data_milvus(id: str, location: str, category: str, vector: list):
 
     response = requests.post(url=url, json=payload, headers=headers)
 
-    return response
+    return {
+        "status_code": response.status_code,
+        "content": response.json()
+    }
 
 
-def search_data_milvus(vector: list):
+def extract_ids(data: list):
+    ids = []
+    for entries in data:
+        vector_id = entries['id']
+        ids.append(vector_id)
+    return ids
+
+
+def search_data_milvus(vector: list, limit: int):
     url = Zilli_url + "search"
 
     payload = {
         "collectionName": "content_based",
         "data": [vector],
-        "limit": 4,
+        "limit": limit,
         "outputFields": ["primary_key"]
     }
 
@@ -79,8 +92,9 @@ def search_data_milvus(vector: list):
     }
 
     response = requests.post(url, headers=headers, json=payload)
-
-    return response
+    data = response.json()['data']
+    ids = extract_ids(data)
+    return ids
 
 
 def transform_address(address: str):
@@ -94,18 +108,18 @@ def transform_address(address: str):
     if data['status'] == 'OK':
         location = data['results'][0]['geometry']['location']
 
-        return [location['lat'],location['lng']]
+        return [location['lat'], location['lng']]
     else:
         return data.json()
 
 
-def combine_embeddings_with_weights(embeddings: list, weights:list):
+def combine_embeddings_with_weights(embeddings: list, weights: list):
     # Initialize an empty array for the final embedding
     final_embedding = np.zeros_like(embeddings[0])
 
     # Combine embeddings based on their weights
     for i in range(len(embeddings)):
-        final_embedding += embeddings[i] * weights[i]
+        final_embedding += np.array(embeddings[i]) * weights[i]
 
     # Normalise by the total weight to keep the scale consistent
     total_weight = sum(weights)
@@ -121,22 +135,27 @@ if __name__ == "__main__":
         # writing test cases here
         response = generate_embedding("testing tesbewbting, 1 2 3")
 
-        response = insert_data_milvus("121425234", '2124124124', '21251241', (response.json()['data'][0]['embedding']))
-        print(response.json())
+        response = insert_data_milvus("121425234", '2124124124', '21251241', (response))
+        print(response)
 
 
     def test2_searches():
         # writing test cases here
         response = generate_embedding("testing testing, 1 2 3")
 
-        response = search_data_milvus(response.json()['data'][0]['embedding'])
-        print(response.json())
+        response = search_data_milvus(response)
+        print(response)
+
 
     def test3_geo_locator():
         address = "Hari Nagar New Delhi, 110064"
         response = transform_address(address)
         print(response)
 
-    test3_geo_locator()
+
+    def test_generate_embedding():
+        response = generate_embedding("testing testing, 1 2 3")
+        print(response)
+
+
     test2_searches()
-    test1_insertions()
