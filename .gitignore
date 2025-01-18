@@ -1,4 +1,4 @@
 sparsh
 env/
 __pycache__/
-env/requirements.txt
+requirements.txt
