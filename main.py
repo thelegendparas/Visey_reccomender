@@ -13,6 +13,15 @@ class Business(BaseModel):
     categoryTags: str
     description: str
 
+class Startup(BaseModel):
+    id: str
+    name: str
+    location: str
+    industry: str
+    sector: str
+    trllevel: int
+
+
 
 class Vector(BaseModel):
     embedding: conlist(float, min_length=500, max_length=500)
@@ -25,8 +34,17 @@ app = FastAPI(
 
 
 @app.post("/get_reccomendations/")
-def get_matches(vector: Vector, limit: int = Query(default=10, ge=0, le=100)):
-    ids = search_data_milvus(vector.embedding, limit)
+def get_matches(startup: Startup, limit: int = Query(default=10, ge=0, le=100)):
+    name_vector = generate_embedding(startup.name)
+    coords = transform_address(startup.location)
+    location_vector = generate_embedding(f"{coords[0]},{coords[1]}")
+    industry_vector = generate_embedding(f"{startup.industry} + {startup.sector}")
+
+    weights = [1, 3, 6]
+    embeddings = [name_vector, location_vector, industry_vector]
+    embedding = combine_embeddings_with_weights(embeddings, weights)
+
+    ids = search_data_milvus(embedding, limit)
 
     return {
         "status_code": "OK",
