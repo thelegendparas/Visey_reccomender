@@ -31,6 +31,9 @@ def generate_embedding(input: str):
     response = requests.post(url="https://api.openai.com/v1/embeddings",
                              headers=headers, json=data)
 
+    if response.status_code != 200:
+        raise Exception(f"Failed to generate embedding: {response.status_code} , {response.reason}")
+
     response = response.json()
 
     return response["data"][0]['embedding']
