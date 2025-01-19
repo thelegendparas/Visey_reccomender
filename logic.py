@@ -3,8 +3,6 @@ import os
 from dotenv import load_dotenv, dotenv_values
 import numpy as np
 
-load_dotenv(dotenv_path="env/.env")
-
 # Loading all the token values
 Zilli_url = os.getenv("ZILLI_URL")
 Zilli_token = os.getenv("ZILLI_TOKEN")
