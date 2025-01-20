@@ -2,7 +2,7 @@ from fastapi import FastAPI, Query
 from pydantic import BaseModel, conlist
 
 from logic import generate_embedding, insert_data_milvus, search_data_milvus, transform_address
-from logic import combine_embeddings_with_weights
+from logic import combine_embeddings_with_weights, convert_list_str
 
 
 class Business(BaseModel):
@@ -10,7 +10,7 @@ class Business(BaseModel):
     name: str
     location: str
     category: str
-    categoryTags: str
+    categoryTags: conlist(str)
     description: str
 
 class Startup(BaseModel):
@@ -58,7 +58,8 @@ def insert_data(business: Business):
     coords = transform_address(business.location)
     location_vector = generate_embedding(f"{coords[0]},{coords[1]}")
     description_vector = generate_embedding(business.description)
-    category_vector = generate_embedding(f"{business.category} + {business.categoryTags}")
+    category_tags_string = convert_list_str(business.categoryTags)
+    category_vector = generate_embedding(f"{business.category} + {category_tags_string}")
 
     weights = [1, 2, 3, 4]
     embeddings = [name_vector, location_vector, description_vector, category_vector]

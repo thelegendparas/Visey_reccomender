@@ -130,6 +130,10 @@ def combine_embeddings_with_weights(embeddings: list, weights: list):
     return final_embedding
 
 
+def convert_list_str(tags: list) -> str:
+    return " ".join(tags)
+
+
 if __name__ == "__main__":
     def test1_insertions():
         # writing test cases here
@@ -158,4 +162,10 @@ if __name__ == "__main__":
         print(response)
 
 
-    test3_geo_locator()
+    def test_tag_string():
+        tags = ["pokemon", "fireshow", "pikachu"]
+        x = convert_list_str(tags)
+        print(x)
+
+    test_tag_string()
+
