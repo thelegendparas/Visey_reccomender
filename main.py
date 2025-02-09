@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import FastAPI, Query
 from pydantic import BaseModel, conlist
 
@@ -13,6 +15,7 @@ class Business(BaseModel):
     categoryTags: conlist(str)
     description: str
 
+
 class Startup(BaseModel):
     id: str
     name: str
@@ -20,7 +23,6 @@ class Startup(BaseModel):
     industry: str
     sector: str
     trllevel: int
-
 
 
 class Vector(BaseModel):
@@ -34,14 +36,17 @@ app = FastAPI(
 
 
 @app.post("/get_reccomendations/")
-def get_matches(startup: Startup, limit: int = Query(default=10, ge=0, le=100)):
-    name_vector = generate_embedding(startup.name)
+async def get_matches(startup: Startup, limit: int = Query(default=10, ge=0, le=100)):
     coords = transform_address(startup.location)
-    location_vector = generate_embedding(f"{coords[0]},{coords[1]}")
-    industry_vector = generate_embedding(f"{startup.industry} + {startup.sector}")
+
+    embeddings = await asyncio.gather(
+        generate_embedding(startup.name),
+        generate_embedding(f"{coords[0]},{coords[1]}"),
+        generate_embedding(f"{startup.industry} + {startup.sector}")
+    )
 
     weights = [1, 3, 6]
-    embeddings = [name_vector, location_vector, industry_vector]
+    embeddings = [embeddings[0], embeddings[1], embeddings[2]]
     embedding = combine_embeddings_with_weights(embeddings, weights)
 
     ids = search_data_milvus(embedding, limit)
@@ -53,14 +58,17 @@ def get_matches(startup: Startup, limit: int = Query(default=10, ge=0, le=100)):
 
 
 @app.post("/data_insert/")
-def insert_data(business: Business):
-    name_vector = generate_embedding(business.name)
+async def insert_data(business: Business):
     coords = transform_address(business.location)
-    location_vector = generate_embedding(f"{coords[0]},{coords[1]}")
-    description_vector = generate_embedding(business.description)
     category_tags_string = convert_list_str(business.categoryTags)
-    category_vector = generate_embedding(f"{business.category} + {category_tags_string}")
+    embeddings = await asyncio.gather(generate_embedding(business.name), generate_embedding(f"{coords[0]},{coords[1]}"),
+                                      generate_embedding(business.description),
+                                      generate_embedding(f"{business.category} + {category_tags_string}"))
 
+    name_vector = embeddings[0]
+    location_vector = embeddings[1]
+    description_vector = embeddings[2]
+    category_vector = embeddings[3]
     weights = [1, 2, 3, 4]
     embeddings = [name_vector, location_vector, description_vector, category_vector]
 

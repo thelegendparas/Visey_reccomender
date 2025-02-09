@@ -2,7 +2,9 @@
 import os
 from dotenv import load_dotenv, dotenv_values
 import numpy as np
-
+import _asyncio
+# Load environment variables from the specified .env file
+# load_dotenv()
 # Loading all the token values
 Zilli_url = os.getenv("ZILLI_URL")
 Zilli_token = os.getenv("ZILLI_TOKEN")
@@ -12,9 +14,9 @@ OpenAI_API_Key = os.getenv("OPENAI_API_KEY")
 Geolocator_API_Key = os.getenv("GEOLOCATOR_API_KEY")
 # Openapi embedding generation code
 import requests
+import httpx
 
-
-def generate_embedding(input: str):
+async def generate_embedding(input: str):
     # payload
     data = {
         "input": input,
@@ -28,9 +30,12 @@ def generate_embedding(input: str):
         "Authorization": f"Bearer {OpenAI_API_Key}"
     }
 
-    response = requests.post(url="https://api.openai.com/v1/embeddings",
-                             headers=headers, json=data)
-
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            url="https://api.openai.com/v1/embeddings",
+            headers=headers,
+            json=data
+        )
     if response.status_code != 200:
         raise Exception(f"Failed to generate embedding: {response.status_code} , {response.reason}")
 
@@ -167,5 +172,5 @@ if __name__ == "__main__":
         x = convert_list_str(tags)
         print(x)
 
-    test_tag_string()
+    test3_geo_locator()
 
