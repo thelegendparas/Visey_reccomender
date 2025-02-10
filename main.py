@@ -3,7 +3,8 @@ import asyncio
 from fastapi import FastAPI, Query
 from pydantic import BaseModel, conlist
 
-from logic import generate_embedding, insert_data_milvus, search_data_milvus, transform_address
+from logic import generate_embedding, insert_data_milvus, search_data_milvus, transform_address, \
+    insert_data_milvus_opportunity
 from logic import combine_embeddings_with_weights, convert_list_str
 
 
@@ -29,13 +30,24 @@ class Vector(BaseModel):
     embedding: conlist(float, min_length=500, max_length=500)
 
 
+class Opportunity(BaseModel):
+    id: str
+    type: str
+    subtype: str
+    title: str
+    fundingAmount: float
+    targetIndustry: str
+    targetSector: str
+    description: str
+
+
 app = FastAPI(
     title="content_based recommendation",
-    version="1.0.0"
+    version="1.3.1"
 )
 
 
-@app.post("/get_reccomendations/")
+@app.post("/business/get_reccomendations/")
 async def get_matches(startup: Startup, limit: int = Query(default=10, ge=0, le=100)):
     coords = transform_address(startup.location)
 
@@ -49,7 +61,7 @@ async def get_matches(startup: Startup, limit: int = Query(default=10, ge=0, le=
     embeddings = [embeddings[0], embeddings[1], embeddings[2]]
     embedding = combine_embeddings_with_weights(embeddings, weights)
 
-    ids = search_data_milvus(embedding, limit)
+    ids = search_data_milvus(embedding, limit, True)
 
     return {
         "status_code": "OK",
@@ -57,7 +69,7 @@ async def get_matches(startup: Startup, limit: int = Query(default=10, ge=0, le=
     }
 
 
-@app.post("/data_insert/")
+@app.post("/business/data_insert/")
 async def insert_data(business: Business):
     coords = transform_address(business.location)
     category_tags_string = convert_list_str(business.categoryTags)
@@ -75,5 +87,49 @@ async def insert_data(business: Business):
     embedding = combine_embeddings_with_weights(embeddings, weights)
 
     response = insert_data_milvus(business.id, business.location, business.category, embedding)
+
+    return response
+
+
+@app.post("/opportunity/get_reccomendations/")
+async def get_matches(startup: Startup, limit: int = Query(default=10, ge=0, le=100)):
+    coords = transform_address(startup.location)
+
+    embeddings = await asyncio.gather(
+        generate_embedding(startup.name),
+        generate_embedding(f"{coords[0]},{coords[1]}"),
+        generate_embedding(f"{startup.industry} + {startup.sector}")
+    )
+
+    weights = [1, 3, 6]
+    embeddings = [embeddings[0], embeddings[1], embeddings[2]]
+    embedding = combine_embeddings_with_weights(embeddings, weights)
+
+    ids = search_data_milvus(embedding, limit, False)
+
+    return {
+        "status_code": "OK",
+        "content": ids
+    }
+
+
+@app.post("/opportunity/data_insert/")
+async def insert_data(opportunity: Opportunity):
+    embeddings = await asyncio.gather(generate_embedding(opportunity.type), generate_embedding(opportunity.subtype),
+                                      generate_embedding(opportunity.title),
+                                      generate_embedding(f"{opportunity.targetIndustry} + {opportunity.targetSector}"),
+                                      generate_embedding(opportunity.description),
+                                      generate_embedding(f"funding amount is {opportunity.fundingAmount}"))
+
+    weights = [1, 1, 4, 3, 2]
+    embeddings = [embeddings[0], embeddings[1], embeddings[2], embeddings[3], embeddings[4], embeddings[5]]
+
+    embedding = combine_embeddings_with_weights(embeddings, weights)
+
+    response = insert_data_milvus_opportunity(opportunity.id, embedding, opportunity.type, opportunity.subtype,
+                                              opportunity.title
+                                              , opportunity.fundingAmount, opportunity.targetIndustry,
+                                              opportunity.targetSector,
+                                              opportunity.description)
 
     return response

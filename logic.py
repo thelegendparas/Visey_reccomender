@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv, dotenv_values
 import numpy as np
 import _asyncio
+
 # Load environment variables from the specified .env file
 # load_dotenv()
 # Loading all the token values
@@ -15,6 +16,7 @@ Geolocator_API_Key = os.getenv("GEOLOCATOR_API_KEY")
 # Openapi embedding generation code
 import requests
 import httpx
+
 
 async def generate_embedding(input: str):
     # payload
@@ -81,11 +83,16 @@ def extract_ids(data: list):
     return ids
 
 
-def search_data_milvus(vector: list, limit: int):
+def search_data_milvus(vector: list, limit: int, flip: bool):
     url = Zilli_url + "search"
 
+    if flip:
+        x = "content_based"
+    else:
+        x = "opportunity"
+
     payload = {
-        "collectionName": "content_based",
+        "collectionName": x,
         "data": [vector],
         "limit": limit,
         "outputFields": ["primary_key"]
@@ -139,6 +146,41 @@ def convert_list_str(tags: list) -> str:
     return " ".join(tags)
 
 
+def insert_data_milvus_opportunity(id: str, vector: list, type: str, subtype: str, title: str, fundingAmount: float,
+                                   targetIndustry: str, targetSector: str, description: str):
+    url = Zilli_url + "insert"
+
+    payload = {
+        "collectionName": "opportunity",
+        "data": [
+            {
+                "Id": id,
+                "type": type,
+                "subtype": subtype,
+                "title": title,
+                "fundingAmount": fundingAmount,
+                "targetIndustry": targetIndustry,
+                "targetSector": targetSector,
+                "description": description,
+                "vector": vector
+            }
+        ]
+    }
+
+    headers = {
+        "Authorization": Zilli_token,
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url=url, json=payload, headers=headers)
+
+    return {
+        "status_code": response.status_code,
+        "content": response.json()
+    }
+
+
 if __name__ == "__main__":
     def test1_insertions():
         # writing test cases here
@@ -172,5 +214,5 @@ if __name__ == "__main__":
         x = convert_list_str(tags)
         print(x)
 
-    test3_geo_locator()
 
+    test3_geo_locator()
