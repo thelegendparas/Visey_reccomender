@@ -1,4 +1,4 @@
-# Visey Recommender Microservice
+# Visey Recommender 
 
 ## 🚀 Overview
 
